@@ -1,5 +1,7 @@
 python-telegram-bot
-pyotp
-faker
 pandas
 openpyxl
+faker
+pyotp
+flask
+gunicorn
