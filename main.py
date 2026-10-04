@@ -1,4 +1,46 @@
 import os
+import sys
+import subprocess
+import threading
+from flask import Flask
+
+# --- FLASK KEEP-ALIVE SERVER FOR RENDER ---
+web_app = Flask('')
+
+@web_app.route('/')
+def home():
+    return "Bot is alive and running!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    web_app.run(host='0.0.0.0', port=port)
+
+def keep_alive():
+    t = threading.Thread(target=run_flask)
+    t.daemon = True
+    t.start()
+
+# --- AUTO INSTALL MISSING PACKAGES ---
+REQUIRED_PACKAGES = [
+    "python-telegram-bot",
+    "pandas",
+    "openpyxl",
+    "faker",
+    "pyotp",
+    "flask"
+]
+
+def install_packages():
+    for pkg in REQUIRED_PACKAGES:
+        try:
+            pkg_import_name = pkg.replace("-", "_")
+            __import__(pkg_import_name)
+        except ImportError:
+            print(f"[+] Installing missing package: {pkg}")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", pkg])
+
+install_packages()
+
 import re
 import json
 import pyotp
@@ -78,7 +120,6 @@ def get_today_excel_file(user_id):
     filename = f"Tasks_{datetime.now().strftime('%Y-%m-%d')}.xlsx"
     return os.path.join(user_dir, filename)
 
-# স্থায়ী কিবোর্ড জেনারেটর (এডমিন হলে অতিরিক্ত Admin Panel বাটন থাকবে)
 def get_persistent_keyboard(user_handle=None):
     keyboard = [
         [KeyboardButton("➕ New Task"), KeyboardButton("📁 File Manager")],
@@ -108,15 +149,15 @@ async def send_join_request(update: Update):
     reply_markup = InlineKeyboardMarkup(keyboard)
     msg = (
         "🔒 **Access Restricted!**\n\n"
-        "এই বটটি ব্যবহার করতে হলে আপনাকে আমাদের অফিশিয়াল টেলিগ্রাম চ্যানেলে জয়েন করতে হবে।\n"
-        "নিচের বাটনে ক্লিক করে জয়েন করুন এবং 'Verify' চাপুন।"
+        "Ei bot-ti bebohar korte hole apnake amader official channel-e join korte hobe.\n"
+        "Nicher button-e click kore join korun ebong 'Verify' chapun."
     )
     if update.message:
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
     elif update.callback_query:
         await update.callback_query.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
 
-# /start কমান্ড
+# /start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     save_user(user.id)
@@ -127,7 +168,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply_markup = get_persistent_keyboard(user.username)
     await update.message.reply_text(
-        "👋 Welcome to Rubel Task Bot!\n\nNicer button press kore task ba file manage করুন।",
+        "👋 Welcome to Rubel Task Bot!\n\nNicer button press kore task ba file manage korun.",
         reply_markup=reply_markup
     )
 
@@ -145,7 +186,6 @@ def get_file_manager_markup(user_id):
     keyboard.append([InlineKeyboardButton("❌ Close Manager", callback_data="close_manager")])
     return InlineKeyboardMarkup(keyboard)
 
-# Admin Dashboard UI
 def get_admin_dashboard_markup():
     keyboard = [
         [
@@ -191,7 +231,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif data == "admin_broadcast_start":
             admin_states[user.id] = "WAITING_BROADCAST_TEXT"
             await query.edit_message_text(
-                "📢 **Broadcast Mode Active**\n\nযে মেসেজটি সব ইউজারের কাছে পাঠাতে চান, তা লিখে মেসেজ দিন।\n(ক্যানসেল করতে চাইলে '❌ Cancel' লিখুন)",
+                "📢 **Broadcast Mode Active**\n\nJe message-ti sob user-er kache pathate chan, ta likhe message din.\n(Cancel korte chaile '❌ Cancel' likhun)",
                 parse_mode="Markdown"
             )
             return
@@ -204,11 +244,11 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 InlineKeyboardButton("📥 Download", callback_data=f"dl_{filename}"),
                 InlineKeyboardButton("🗑️ Delete", callback_data=f"del_{filename}")
             ],
-            [InlineKeyboardButton("✏️ Remove Last Entry", callback_data=f"edit_pop_{filename}")],
+            [InlineKeyboardButton("✏ Remove Last Entry", callback_data=f"edit_pop_{filename}")],
             [InlineKeyboardButton("🔙 Back to List", callback_data="back_to_list")]
         ]
         await query.edit_message_text(
-            f"📁 **File:** `{filename}`\nKi korte chan select করুন:",
+            f"📁 **File:** `{filename}`\nKi korte chan select korun:",
             parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
@@ -272,7 +312,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_join_request(update)
         return
 
-    # --- BROADCAST SYSTEM FOR ADMIN ---
+    # Broadcast system
     if user.username and user.username.lower() == ADMIN_USERNAME.lower() and admin_states.get(user_id) == "WAITING_BROADCAST_TEXT":
         if text == "❌ Cancel":
             del admin_states[user_id]
@@ -300,14 +340,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    # --- ADMIN DASHBOARD BUTTON ---
+    # Admin Dashboard button
     if text == "👑 Admin Dashboard" and user.username and user.username.lower() == ADMIN_USERNAME.lower():
         total_users = len(load_users())
-        msg = f"⚙️ **Admin Control Panel**\n\n👤 Logged Admin: @{ADMIN_USERNAME}\n📊 Total Users in DB: `{total_users}`"
+        msg = f"⚙ **Admin Control Panel**\n\n👤 Logged Admin: @{ADMIN_USERNAME}\n📊 Total Users in DB: `{total_users}`"
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=get_admin_dashboard_markup())
         return
 
-    # --- ➕ New Task Button ---
+    # ➕ New Task Button
     if text == "➕ New Task":
         full_name = fake.name()
         first_name = fake.first_name()
@@ -330,11 +370,11 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"📛 **Name:** `{full_name}`\n"
             f"👤 **Username:** `{generated_username}`\n"
             f"🔑 **Password:** `{current_password}`\n\n"
-            f"Task complete hole নিচের '✅ Done (Submit 2FA)' বাটন প্রেস করুন।"
+            f"Task complete hole nicer '✅ Done (Submit 2FA)' button press korun."
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
 
-    # --- 📁 File Manager Button ---
+    # 📁 File Manager Button
     elif text == "📁 File Manager":
         await update.message.reply_text(
             "📁 **File Manager (Your Excel Files):**",
@@ -342,7 +382,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             reply_markup=get_file_manager_markup(user_id)
         )
 
-    # --- ✅ Done (Submit 2FA) Button ---
+    # ✅ Done (Submit 2FA) Button
     elif text == "✅ Done (Submit 2FA)":
         if user_id in user_tasks:
             user_tasks[user_id]["state"] = "WAITING_FOR_2FA"
@@ -352,15 +392,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 reply_markup=reply_markup
             )
         else:
-            await update.message.reply_text("❌ Kono active task pawa jayni. '➕ New Task' প্রেস করুন।", reply_markup=reply_markup)
+            await update.message.reply_text("❌ Kono active task pawa jayni. '➕ New Task' press korun.", reply_markup=reply_markup)
 
-    # --- ❌ Cancel Button ---
+    # ❌ Cancel Button
     elif text == "❌ Cancel":
         if user_id in user_tasks:
             del user_tasks[user_id]
         await update.message.reply_text("❌ Task Cancelled! Excel-e save kora hoyni.", reply_markup=reply_markup)
 
-    # --- 📤 Submit Task Button ---
+    # 📤 Submit Task Button
     elif text == "📤 Submit Task":
         if user_id in user_tasks and user_tasks[user_id].get("2fa"):
             task = user_tasks[user_id]
@@ -391,7 +431,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             await update.message.reply_text("⚠️ Age 2FA Secret Key pathan, tarpor Submit korun!", reply_markup=reply_markup)
 
-    # --- Handling 2FA Input Text ---
+    # 2FA Input Handling
     elif user_id in user_tasks and user_tasks[user_id].get("state") == "WAITING_FOR_2FA":
         secret_key = clean_secret_key(text)
 
@@ -408,7 +448,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             await update.message.reply_text(
                 f"🔑 **Generated OTP:** `{otp_code}`\n\n"
-                f"Excel Sheet-e save korte নিচের **'📤 Submit Task'** বাটন প্রেস করুন।",
+                f"Excel Sheet-e save korte nicer **'📤 Submit Task'** button press korun.",
                 parse_mode="Markdown",
                 reply_markup=reply_markup
             )
@@ -416,11 +456,15 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ Invalid 2FA Secret Key. Sothik key pathan:", reply_markup=reply_markup)
 
 if __name__ == "__main__":
+    # Web server-ti background thread-e start hobey
+    keep_alive()
+
+    # Telegram bot start hobey
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(handle_callback))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Rubel Bot is running with Admin Dashboard & Broadcast Support...")
+    print("Rubel Bot is running with Flask Server and 24/7 Uptime Support...")
     app.run_polling()
