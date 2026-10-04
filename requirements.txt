@@ -1,0 +1,5 @@
+python-telegram-bot
+pyotp
+faker
+pandas
+openpyxl
