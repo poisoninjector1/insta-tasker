@@ -67,7 +67,7 @@ from telegram.ext import (
 fake = Faker('en_US')
 
 # --- CONFIGURATION ---
-BOT_TOKEN = "8820382524:AAH7zkiLSptvPpBWQuQFB679WQAONy2k0WA"
+BOT_TOKEN = "8820382524:AAEz7ds8VkQUEmP0uUoXqAHXojzFkKRH--g"
 
 # Required Telegram Channel Username & Link
 CHANNEL_USERNAME = "@rotgofficial"
